@@ -36,31 +36,29 @@ const run = async () => {
 
   client.on('ready', async () => {
     console.log('client ready');
+    console.time('collectingChats');
     const chats = await client.getChats();
     console.log(
       `${chats.length} chat found, please be patient while we extract messages`
     );
-    //  const groupChats= await contactsModel.find({isGroup:true})
+
     let messagesSaved = 0;
     let messages;
     const fetchmessages = chats.map(async chat => {
       let limit = 1000;
-      chat.isGroup ? (limit = 25000) : (limit = 50);
-      console.log(chat);
-      return await chat.fetchMessages({ limit: 1000 });
+      chat.isGroup ? (limit = 45000) : (limit = 10000);
+      await chat.markUnread();
+      return await chat.fetchMessages({ limit });
     });
     await Promise.all(fetchmessages).then(result => {
       messages = result.flat();
-
       console.log(`Fetching ${messages.length}messages  done`);
     });
-    // console.log(messages);
 
     let chatMessagesCount = 0;
-    const savedMessages = await messages.map(async message => {
-      const { body, timestamp, fromMe, deviceType, hasMedia, id, data, to } =
-        message;
-      //  console.log(body, timestamp, fromMe, deviceType, id);
+    const saveMessagesFromChat = await messages.map(async message => {
+      const { body, timestamp, fromMe, deviceType } = message;
+
       try {
         const type = message.type;
         console.log(`message type=${type}`);
@@ -70,8 +68,10 @@ const run = async () => {
         const existing = await chatMessagesModel.findOne({
           id: id,
         });
-        if (existing) {
-          console.log('message exist already');
+        let isGroupMessage;
+
+        if (existing || type === 'e2e_notification') {
+          console.log('message exist already or e2e notification');
           return;
         }
         if (body.length > 0 && !existing) {
@@ -81,10 +81,14 @@ const run = async () => {
             timeStamp: new Date(timestamp * 1000),
             fromMe,
             from: message._data.from.user,
-            //author: !type === 'gp' || 'gp2' ? message._data.author.user : '',
+            author:
+              !type === 'gp' || 'gp2'
+                ? message._data.from.user
+                : 'not_from_group',
             id,
+            isGroupMessage: type === 'gp' || type === 'gp2' ? true : false,
             to:
-              type === 'chat'
+              type === 'gp' || 'gp2'
                 ? message._data.to.user
                 : message._data.id.participant,
             messageType: type,
@@ -94,7 +98,7 @@ const run = async () => {
             chatMessagesCount++;
             messagesSaved++;
             console.log(
-              `${chatMessagesCount} messages From ${result.from}  saved successfuly.\n${messagesSaved} messages saved so far.`
+              `Messages From ${result.from}  saved successfuly.\n${messagesSaved} messages saved so far.`
             );
           });
         }
@@ -102,72 +106,33 @@ const run = async () => {
         console.log(error);
       }
     });
-    await Promise.all(savedMessages).then(() => {
+    await Promise.all(saveMessagesFromChat).then(() => {
       console.log('Saving messages done');
+      console.timeEnd('collectingChats');
     });
-    // await chatMessagesModel.deleteMany({});
-    /*  // create a promise for saving each message
-    let saveMessages = [];
-    chats.forEach(async chat => {
-      await chat.markUnread().then(async result => {
-        console.log(result);
-        const messages = await chat.fetchMessages();
+    console.time('contacts');
+    const contacts = await client.getContacts();
+    let numberOfContacts = 0;
 
-        messages.forEach(message => {
-          const { body, timestamp, fromMe, deviceType } = message;
-          const type = message.type;
-          const id = message._data.id.id;
-          const saveMessage = async () => {
-            console.log('messages');
-            try {
-              const existing = await chatMessagesModel.findOne({
-                id: id,
-              });
-              if (existing) {
-                console.log('message exist already');
-                return;
-              }
-              if (body.length > 0 && !existing) {
-                console.log(`now saving message ${id}`);
-                const chatEntry = new chatsModel({
-                  body,
-                  timeStamp: new Date(timestamp * 1000),
-                  fromMe,
-                  from: message._data.from.user,
-                  id,
-                  to: message._data.to.user,
-                  messageType: type,
-                  deviceType,
-                });
-                await chatEntry.save().then(result => {
-                  messageSaved++;
-                  console.log(
-                    `${messageSaved} messages saved so far.Message From ${result.from}  saved successfuly`
-                  );
-                });
-              }
-            } catch (error) {
-              console.log(error);
-            }
-          };
-          saveMessages.push(saveMessage());
+    const contactPromises = contacts.map(async contact => {
+      // console.log(contact)
+      try {
+        const {
+          isBlocked,
+          isMyContact,
+          isWAContact,
+          isGroup,
+          isMe,
+          isBusiness,
+          name,
+          pushname,
+        } = contact;
+
+        const exist = await contactsModel.findOne({
+          whatsappnumber: contact.id.user,
         });
-      });
-    }); */
-    /* await Promise.all(saveMessages).then(async result => {
-      ('All messages saved successfuly');
-    }); */
-    /* 
-      const contacts = await client.getContacts();
-      const numberOfContacts = contacts.length;
-      let contactCount = 0;
-
-      const contactPromises = contacts.map(async contact => {
-        contactCount++;
-
-        // console.log(contact)
-        try {
-          const {
+        if (!exist) {
+          const newContact = new contactsModel({
             isBlocked,
             isMyContact,
             isWAContact,
@@ -176,43 +141,29 @@ const run = async () => {
             isBusiness,
             name,
             pushname,
-          } = contact;
-
-          const exist = await contactsModel.findOne({
             whatsappnumber: contact.id.user,
           });
-          if (!exist) {
-            const newContact = new contactsModel({
-              isBlocked,
-              isMyContact,
-              isWAContact,
-              isGroup,
-              isMe,
-              isBusiness,
-              name,
-              pushname,
-              whatsappnumber: contact.id.user,
-            });
-            await newContact
-              .save()
-              .then(result =>
-                console.log(
-                  `Contact number ${result.whatsappnumber} saved successfully`
-                )
-              );
-          }
-        } catch (error) {
-          console.log(error);
+          await newContact.save().then(result => {
+            numberOfContacts++;
+            console.log(
+              `Contact number ${result.whatsappnumber} saved successfully. ${numberOfContacts} done`
+            );
+          });
         }
-      });
-      await Promise.all(contactPromises).then(() => {
-        console.log('Saving contacts now complete');
-      });
-    }); */
-
-    client.on('disconnected', reason => {
-      console.log('Client was logged out', reason);
+      } catch (error) {
+        console.log(error);
+      }
     });
+    await Promise.all(contactPromises).then(() => {
+      console.log(
+        `Saving contacts now complete . ${numberOfContacts} left unsaved`
+      );
+      console.timeEnd('contacts');
+    });
+  });
+
+  client.on('disconnected', reason => {
+    console.log('Client was logged out', reason);
   });
 };
 run();
