@@ -8,6 +8,7 @@ const chatsSchema = new mongoose.Schema({
   author: {
     type: String,
   },
+  //chatName: { type: String },
   to: {
     type: String,
     required: false,

@@ -38,11 +38,11 @@ const run = async () => {
     console.log('client ready');
     console.time('collectingChats');
     const chats = await client.getChats();
+    console.log(chats[0]);
     console.log(
       `${chats.length} chat found, please be patient while we extract messages`
     );
 
-    let messagesSaved = 0;
     let messages;
     const fetchmessages = chats.map(async chat => {
       let limit = 1000;
@@ -58,7 +58,7 @@ const run = async () => {
     let chatMessagesCount = 0;
     const saveMessagesFromChat = await messages.map(async message => {
       const { body, timestamp, fromMe, deviceType } = message;
-
+      // const chat = (await client.getChatById(message.from)).name;
       try {
         const type = message.type;
         console.log(`message type=${type}`);
@@ -68,10 +68,12 @@ const run = async () => {
         const existing = await chatMessagesModel.findOne({
           id: id,
         });
-        let isGroupMessage;
+        let isGroupMessage = type == 'gp' || type === 'gp2' ? true : false;
 
-        if (existing || type === 'e2e_notification') {
-          console.log('message exist already or e2e notification');
+        if (existing || type === 'e2e_notification' || isGroupMessage) {
+          console.log(
+            'message exist already or e2e notification or group message'
+          );
           return;
         }
         if (body.length > 0 && !existing) {
@@ -80,9 +82,10 @@ const run = async () => {
             body,
             timeStamp: new Date(timestamp * 1000),
             fromMe,
+            //chatName: chat,
             from: message._data.from.user,
             author:
-              !type === 'gp' || 'gp2'
+              !type === 'gp' || type === 'gp2'
                 ? message._data.from.user
                 : 'not_from_group',
             id,
@@ -98,7 +101,7 @@ const run = async () => {
             chatMessagesCount++;
             messagesSaved++;
             console.log(
-              `Messages From ${result.from}  saved successfuly.\n${messagesSaved} messages saved so far.`
+              `Messages From ${result.from}  saved successfuly.\n${chatMessagesCount} messages saved so far.`
             );
           });
         }
@@ -127,7 +130,8 @@ const run = async () => {
           name,
           pushname,
         } = contact;
-
+        const country = await contact.getCountryCode();
+        const whatsappnumber = await contact.getFormattedNumber();
         const exist = await contactsModel.findOne({
           whatsappnumber: contact.id.user,
         });
@@ -137,11 +141,12 @@ const run = async () => {
             isMyContact,
             isWAContact,
             isGroup,
+            country,
             isMe,
             isBusiness,
             name,
             pushname,
-            whatsappnumber: contact.id.user,
+            whatsappnumber,
           });
           await newContact.save().then(result => {
             numberOfContacts++;

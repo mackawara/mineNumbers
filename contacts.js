@@ -6,6 +6,7 @@ const contactSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+
   name: {
     type: String,
     required: false,
@@ -36,6 +37,11 @@ const contactSchema = new mongoose.Schema({
     required: false,
   },
   whatsappnumber: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  country: {
     type: String,
     required: true,
     unique: true,
