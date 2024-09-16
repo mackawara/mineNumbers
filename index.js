@@ -155,9 +155,7 @@ const run = async () => {
       }
     });
     await Promise.all(contactPromises).then(() => {
-      console.log(
-        `Saving contacts now complete . ${numberOfContacts} left unsaved`
-      );
+      console.log(`Saving contacts now complete . ${numberOfContacts} done`);
       console.timeEnd('contacts');
     });
   });
