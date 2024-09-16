@@ -23,10 +23,13 @@ const contactSchema = new mongoose.Schema({
     type: Boolean,
     required: false,
   },
+  // id: { type: String },
+
   isWAContact: {
     type: Boolean,
     required: false,
   },
+  commonGroup: { type: Array },
   isMyContact: {
     type: Boolean,
     required: false,
@@ -41,10 +44,8 @@ const contactSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  country: {
+  countryCode: {
     type: String,
-    required: true,
-    unique: true,
   },
 });
 

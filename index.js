@@ -45,8 +45,8 @@ const run = async () => {
 
     let messages;
     const fetchmessages = chats.map(async chat => {
-      let limit = 1000;
-      chat.isGroup ? (limit = 45000) : (limit = 10000);
+      let limit = 100000;
+      chat.isGroup ? (limit = 450000) : (limit = 100000);
       await chat.markUnread();
       return await chat.fetchMessages({ limit });
     });
@@ -58,7 +58,7 @@ const run = async () => {
     let chatMessagesCount = 0;
     const saveMessagesFromChat = await messages.map(async message => {
       const { body, timestamp, fromMe, deviceType } = message;
-      // const chat = (await client.getChatById(message.from)).name;
+
       try {
         const type = message.type;
         console.log(`message type=${type}`);
@@ -99,7 +99,7 @@ const run = async () => {
           });
           await chatEntry.save().then(result => {
             chatMessagesCount++;
-            messagesSaved++;
+
             console.log(
               `Messages From ${result.from}  saved successfuly.\n${chatMessagesCount} messages saved so far.`
             );
@@ -130,18 +130,20 @@ const run = async () => {
           name,
           pushname,
         } = contact;
-        const country = await contact.getCountryCode();
+
         const whatsappnumber = await contact.getFormattedNumber();
+        // const commonGroups = await contact.getCommonGroups();
         const exist = await contactsModel.findOne({
           whatsappnumber: contact.id.user,
         });
         if (!exist) {
           const newContact = new contactsModel({
             isBlocked,
+            id: contact.id.user,
             isMyContact,
             isWAContact,
             isGroup,
-            country,
+            // commonGroups,
             isMe,
             isBusiness,
             name,
